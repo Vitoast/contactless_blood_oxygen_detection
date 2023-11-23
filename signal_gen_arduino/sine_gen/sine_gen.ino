@@ -1,8 +1,9 @@
-const int fixedFrequencyLow = 3; // Constant frequency for pin 1 in Hz
-const int fixedFrequencyHigh = 5; // Constant frequency for pin 1 in Hz
+const int fixedFrequencyLow = 2; // Constant frequency for pin 3 in Hz
+const int fixedFrequencyHigh = 10; // Constant frequency for pin 5 in Hz
 
-const int sineSteps =  360;
-const int waitPeriod = 255;
+const float sineSteps =  100.0;
+const float maxSineValue = 360.0; //2pi
+const int waitPeriod = 100; // us
 
 const float holdLimitLow = 1. / (fixedFrequencyLow * waitPeriod * 0.000001 * sineSteps);
 const float holdLimitHigh = 1. / (fixedFrequencyHigh * waitPeriod * 0.000001 * sineSteps);
@@ -58,8 +59,8 @@ void loop() {
     } else {
       holdCounterLow = 0;
       sineCounterLow = (sineCounterLow < sineSteps) ? (sineCounterLow + 1) : 0; 
-      sinValueLow = sin(radians(sineCounterLow));
-      // scale the sine value so it fits the range 0 to 255
+      sinValueLow = sin(radians((float)sineCounterLow / sineSteps * maxSineValue));
+      // scale the sine value so it fits the range
       dutyCycleLow = (sinValueLow + 1) / 2 * waitPeriod;
     }
 
@@ -69,8 +70,8 @@ void loop() {
     } else {
       holdCounterHigh = 0;
       sineCounterHigh = (sineCounterHigh < sineSteps) ? (sineCounterHigh + 1) : 0; 
-      sinValueHigh = sin(radians(sineCounterHigh));
-      // scale the sine value so it fits the range 0 to 255
+      sinValueHigh = sin(radians((float)sineCounterHigh / sineSteps * maxSineValue));
+      // scale the sine value so it fits the range
       dutyCycleHigh = (sinValueHigh + 1) / 2 * waitPeriod;
     }
 
