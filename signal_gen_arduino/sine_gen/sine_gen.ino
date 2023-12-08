@@ -1,15 +1,15 @@
-const int fixedFrequencyLow = 2; // Constant frequency for pin 3 in Hz
-const int fixedFrequencyHigh = 10; // Constant frequency for pin 5 in Hz
+const int fixedFrequencyLow = 20; // Constant frequency for pin 3 in Hz
+const int fixedFrequencyHigh = 20; // Constant frequency for pin 5 in Hz
 
+const int pwmPinLow = 5; // low PWM output pin
+const int pwmPinHigh = 6; // high PWM output pin
 const float sineSteps =  100.0;
-const float maxSineValue = 360.0; //2pi
-const int waitPeriod = 100; // us
+const float maxSineValue = 2.0*PI; //360.0; //2pi
+const int waitPeriod = 500; // us
 
 const float holdLimitLow = 1. / (fixedFrequencyLow * waitPeriod * 0.000001 * sineSteps);
 const float holdLimitHigh = 1. / (fixedFrequencyHigh * waitPeriod * 0.000001 * sineSteps);
 
-const int pwmPinLow = 3; // low PWM output pin
-const int pwmPinHigh = 5; // high PWM output pin
 
 int sineCounterLow = 0;
 int sineCounterHigh = 0;
@@ -24,7 +24,7 @@ long dutyCycleHigh = 0;
 long curr_time = 0.;
 long last_period_time = 0.;
 
-void setup() {
+/*void setup() {
   pinMode(pwmPinLow, OUTPUT);
   digitalWrite(pwmPinLow, LOW);
   pinMode(pwmPinHigh, OUTPUT);
@@ -59,7 +59,8 @@ void loop() {
     } else {
       holdCounterLow = 0;
       sineCounterLow = (sineCounterLow < sineSteps) ? (sineCounterLow + 1) : 0; 
-      sinValueLow = sin(radians((float)sineCounterLow / sineSteps * maxSineValue));
+      //sinValueLow = sin(radians((float)sineCounterLow / sineSteps * maxSineValue));
+      sinValueLow = sin(sineCounterLow / sineSteps * maxSineValue);
       // scale the sine value so it fits the range
       dutyCycleLow = (sinValueLow + 1) / 2 * waitPeriod;
     }
@@ -77,7 +78,7 @@ void loop() {
 
     last_period_time = micros();    
   } 
-}
+}*/
 /*
 const int pwmPin = 3; // PWM output pin
 const int fixedFrequency = 1; // Constant frequency in Hz
@@ -101,45 +102,58 @@ void loop() {
   }
 }
 */
-/*
-const int pwmPinLow = 3; // PWM output pin 1
-const int pwmPinHigh = 5; // PWM output pin 2
-const int fixedFrequencyLow = 3; // Constant frequency for pin 1 in Hz
-const int fixedFrequencyHigh = 5; // Constant frequency for pin 2 in Hz
+int limit1 = 0;
+int limit2 = 0;
+
+ISR(TIMER1_COMPA_vect)
+{
+  int dutyCycle = (sin(radians(sineCounterLow*3.6)) + 1) / 2 * 255; // Map sine value to PWM duty cycle
+  analogWrite(pwmPinLow, dutyCycle);
+  if(sineCounterLow >= sineSteps) {
+    sineCounterLow = 0;
+  } else {
+    sineCounterLow++;
+  }
+  OCR1A += limit1;
+}
+
+ISR(TIMER2_COMPA_vect)
+{
+  int dutyCycle = (sin(radians(sineCounterHigh*3.6)) + 1) / 2 * 255; // Map sine value to PWM duty cycle
+  analogWrite(pwmPinHigh, dutyCycle);
+  if(sineCounterHigh >= sineSteps) {
+    sineCounterHigh = 0;
+  } else {
+    sineCounterHigh++;
+  }
+  OCR2A += limit2;
+}
 
 void setup() {
   pinMode(pwmPinLow, OUTPUT);
   pinMode(pwmPinHigh, OUTPUT);
 
   // Configure Timer1 for PWM generation on pwmPinLow
-  TCCR1A = 0;
-  TCCR1B = 0;
-  TCNT1 = 0;
-
-  int prescaler1 = 8; // Adjust prescaler as needed
-  int top1 = 16000000 / (2 * prescaler1 * fixedFrequencyLow) - 1;
-  ICR1 = top1;
-
-  TCCR1A |= (1 << WGM11) | (1 << COM1A1);
-  TCCR1B |= (1 << WGM12) | (1 << WGM13) | (1 << CS11);
-
+  TCCR1A = 0;           // Init Timer1A
+  TCCR1B = 0;           // Init Timer1B
+  TCCR1B |= B00000010;  // Prescaler = 1
+  int prescaler1 = 8;
+  int fixedPeriodLow = 1 / fixedFrequencyLow;
+  limit1 = 16000000 / (prescaler1 * fixedFrequencyLow * sineSteps) - 1;
+  OCR1A = limit1;  // Timer Compare1A Register
+  TIMSK1 |= B00000010;  // Enable Timer COMPA Interrupt
+  
   // Configure Timer2 for PWM generation on pwmPinHigh
-  TCCR2A = 0;
-  TCCR2B = 0;
-  TCNT2 = 0;
+  TCCR2A = 0;           // Init Timer1A
+  TCCR2B = 0;           // Init Timer1B
+  TCCR2B |= B00000111;  // Prescaler = 1
+  int prescaler2 = 1024;
+  limit2 = 16000000 / (prescaler2 * fixedFrequencyHigh * sineSteps) - 1;
+  OCR2A = limit2;  // Timer Compare1A Register
+  TIMSK2 |= B00000010;  // Enable Timer COMPA Interrupt
 
-  int prescaler2 = 8; // Adjust prescaler as needed
-  int top2 = 16000000 / (2 * prescaler2 * fixedFrequencyHigh) - 1;
-  OCR2A = top2;
-
-  TCCR2A |= (1 << WGM21) | (1 << WGM20) | (1 << COM2A1);
-  TCCR2B |= (1 << CS21);
-
-  // Enable Timer1 and Timer2 overflow interrupts (optional)
-  //TIMSK1 |= (1 << TOIE1);
-  //TIMSK2 |= (1 << TOIE2);
 }
 
 void loop() {
   // Your main code here
-}*/
+}
