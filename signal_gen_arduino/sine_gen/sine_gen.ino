@@ -1,5 +1,5 @@
-const int fixedFrequencyLow = 20; // Constant frequency for pin 3 in Hz
-const int fixedFrequencyHigh = 20; // Constant frequency for pin 5 in Hz
+const int fixedFrequencyLow = 5; // Constant frequency for pin 3 in Hz
+const int fixedFrequencyHigh = 15; // Constant frequency for pin 5 in Hz
 
 const int pwmPinLow = 5; // low PWM output pin
 const int pwmPinHigh = 6; // high PWM output pin
