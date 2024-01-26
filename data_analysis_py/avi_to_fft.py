@@ -1,6 +1,8 @@
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
+from scipy.interpolate import interp1d
+
 
 def process_video(video_path):
     cap = cv2.VideoCapture(video_path)
@@ -11,6 +13,7 @@ def process_video(video_path):
 
     average_values = []
 
+    # Step 1: collect frame data (averages)
     while cap.isOpened():
         ret, frame = cap.read()
 
@@ -23,16 +26,26 @@ def process_video(video_path):
         # Calculate FFT on the average pixel value of the frame
         average_values.append(np.mean(gray_frame))
 
-    # Step 2: Compute FFT
-    fft_result = np.fft.fft(average_values)
+    interpolate = True
+    padding_factor = 1
+
+    # if requested insert interpolated values
+    if (interpolate):
+        interpolated_time = np.arange(0, 2*len(average_values)-1)
+        interpolator = interp1d(interpolated_time[::2], average_values, kind='quadratic')
+        average_values = interpolator(interpolated_time)
+        fps = fps*2
+
+    # Step 2: Compute FFT with padded 0s
+    fft_result = np.fft.fft(average_values, n=padding_factor*len(average_values))
     fft_result_magnitude = np.abs(fft_result)
 
     # Step 3: Frequency Bins
     n = len(fft_result)
-    freq = np.fft.fftfreq(n, 1/fps)
-
+    freq = np.fft.fftfreq(n, 1/(fps))
+    
     # Step 4: Plotting
-    plt.plot(freq, fft_result_magnitude)
+    plt.plot(freq[:n//2], fft_result_magnitude[:n//2])  # Adjust the range for frequencies up to 40 Hz
     plt.title('Frequency Spectrum')
     plt.xlabel('Frequency (Hz)')
     plt.ylabel('Amplitude')
@@ -41,5 +54,5 @@ def process_video(video_path):
     cap.release()
 
 if __name__ == "__main__":
-    video_path = "C:\\Users\\Tobias\\Videos\\" + "onlyor_5hz.avi"
+    video_path = "C:\\Users\\Tobias\\Videos\\" + "onlyir_5hz.avi"
     process_video(video_path)
