@@ -2,9 +2,9 @@ import cv2
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.interpolate import interp1d
+import os
 
-
-def process_video(video_path):
+def process_video(video_path, save_path=None):
     cap = cv2.VideoCapture(video_path)
 
     fps = int(cap.get(cv2.CAP_PROP_FPS))
@@ -30,29 +30,42 @@ def process_video(video_path):
     padding_factor = 1
 
     # if requested insert interpolated values
-    if (interpolate):
-        interpolated_time = np.arange(0, 2*len(average_values)-1)
+    if interpolate:
+        interpolated_time = np.arange(0, 2 * len(average_values) - 1)
         interpolator = interp1d(interpolated_time[::2], average_values, kind='quadratic')
         average_values = interpolator(interpolated_time)
-        fps = fps*2
+        fps = fps * 2
 
     # Step 2: Compute FFT with padded 0s
-    fft_result = np.fft.fft(average_values, n=padding_factor*len(average_values))
+    fft_result = np.fft.fft(average_values, n=padding_factor * len(average_values))
     fft_result_magnitude = np.abs(fft_result)
 
     # Step 3: Frequency Bins
     n = len(fft_result)
-    freq = np.fft.fftfreq(n, 1/(fps))
-    
+    freq = np.fft.fftfreq(n, 1 / (fps))
+
     # Step 4: Plotting
-    plt.plot(freq[:n//2], fft_result_magnitude[:n//2])  # Adjust the range for frequencies up to 40 Hz
+    plt.clf()
+    plt.plot(freq[:n // 2], fft_result_magnitude[:n // 2])  # Adjust the range for frequencies up to 40 Hz
     plt.title('Frequency Spectrum')
     plt.xlabel('Frequency (Hz)')
     plt.ylabel('Amplitude')
-    plt.show()
+
+    # Save plot if save_path is provided
+    if save_path:
+        file_name = os.path.splitext(os.path.basename(video_path))[0]
+        save_file_path = os.path.join(save_path, f'{file_name}_spectrum.png')
+        plt.savefig(save_file_path)
+    else:
+        plt.show()
 
     cap.release()
 
 if __name__ == "__main__":
-    video_path = "C:\\Users\\Tobias\\Videos\\" + "onlyir_5hz.avi"
-    process_video(video_path)
+    folder_path = "C:\\Users\\Tobias\\Videos\\"
+    save_folder_path = "C:\\Users\\Tobias\\Videos\\plots\\" 
+
+    for file_name in os.listdir(folder_path):
+        if file_name.endswith(".avi"):
+            video_path = os.path.join(folder_path, file_name)
+            process_video(video_path, save_folder_path)
