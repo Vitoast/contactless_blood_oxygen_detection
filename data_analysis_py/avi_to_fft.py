@@ -3,26 +3,28 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.interpolate import interp1d
 import os
+import re
 
 # Function to analyse a video input
-def process_video(video_path, save_path=None):
-    # Adjust interpolation and padding of data
-    interpolate = False
-    padding_factor = 1
-    # Adjust frequencies for IR and OR light
-    target_frequency_IR = 5
-    target_frequency_OR = 2
+def process_video(video_path, save_path=None, file_name=None):
     # Enable the average FFT plot
     show_filtered_pictures = True
     # Enable the filtered picture output for IR and OR
-    show_plotted_frequencies = False
-
+    show_plotted_frequencies = True
+    # Adjust frequencies for IR and OR light and get information from file_name
+    target_frequency_IR, target_frequency_OR = parse_filename(file_name)
+    target_frequency_IR = 6
+    print(target_frequency_IR, target_frequency_OR)
     # Get video input
     cap = cv2.VideoCapture(video_path)
     fps = int(cap.get(cv2.CAP_PROP_FPS))
     if fps != 20:
         print("Warning: The video does not have 20fps.")
-
+    # Adjust interpolation and padding of data in case of undersampling
+    interpolate = (target_frequency_OR > fps/2) | (target_frequency_IR > fps/2)
+    undersampled = interpolate
+    padding_factor = 1
+    
     average_values = []
     gray_frames = []
     frame_count = 0
@@ -80,7 +82,7 @@ def process_video(video_path, save_path=None):
             plt.show()
     
     # This part caclulates the FFT values for each pixel, filters the frequency and shows the resulting picture
-    if show_filtered_pictures: 
+    if show_filtered_pictures & (not undersampled): 
         
         fft_result = []
         fft_result_magnitude = []
@@ -113,33 +115,53 @@ def process_video(video_path, save_path=None):
                 filtered_fft_image_OR[pixel_x].append(fft_result_magnitude[pixel_x][pixel_y][target_index_OR])
 
         # Plot the filtered IR image
-        plt.clf()        
-        plt.imshow(filtered_fft_image_IR, cmap='gray')
-        plt.title(f'Infrared filtered: {target_frequency_IR} Hz')
-        plt.colorbar()
-        # Save plot if save_path is provided
-        if save_path:
-            file_name = os.path.splitext(os.path.basename(video_path))[0]
-            save_file_path = os.path.join(save_path, f'{file_name}_IR_filter.png')
-            plt.savefig(save_file_path)
-        else:
-            plt.show()
+        if target_frequency_IR > 0:
+            plt.clf()        
+            plt.imshow(filtered_fft_image_IR, cmap='gray')
+            plt.title(f'Infrared filtered: {target_frequency_IR} Hz')
+            plt.colorbar()
+            # Save plot if save_path is provided
+            if save_path:
+                file_name = os.path.splitext(os.path.basename(video_path))[0]
+                save_file_path = os.path.join(save_path, f'{file_name}_IR-filtered.png')
+                plt.savefig(save_file_path)
+            else:
+                plt.show()
         
         # Plot the filtered OR image
-        plt.clf()        
-        plt.imshow(filtered_fft_image_OR, cmap='gray')
-        plt.title(f'Orange light filtered: {target_frequency_OR} Hz')
-        plt.colorbar()
-        # Save plot if save_path is provided
-        if save_path:
-            file_name = os.path.splitext(os.path.basename(video_path))[0]
-            save_file_path = os.path.join(save_path, f'{file_name}_OR_filter.png')
-            plt.savefig(save_file_path)
-        else:
-            plt.show()
+        if target_frequency_OR > 0:
+            plt.clf()        
+            plt.imshow(filtered_fft_image_OR, cmap='gray')
+            plt.title(f'Orange light filtered: {target_frequency_OR} Hz')
+            plt.colorbar()
+            # Save plot if save_path is provided
+            if save_path:
+                file_name = os.path.splitext(os.path.basename(video_path))[0]
+                save_file_path = os.path.join(save_path, f'{file_name}_OR-filtered.png')
+                plt.savefig(save_file_path)
+            else:
+                plt.show()
 
     # Free video input
     cap.release()
+
+# Use this to get information about used modulation frequencies from video file names
+def parse_filename(name):
+    # Define the regular expression pattern
+    pattern = r'IR-(\d+)_OR-(\d+)'
+
+    # Ffind all matches of the pattern in the string
+    matches = re.findall(pattern, name)
+
+    if matches:
+        # Extract the numbers from the matches and convert them to numbers
+        ir_number = int(matches[0][0])
+        or_number = int(matches[0][1])
+
+        return ir_number, or_number
+    else:
+        print("Input file does not have correct naming.")
+        return None, None
 
 # Main Function that handles paths
 if __name__ == "__main__":
@@ -149,4 +171,4 @@ if __name__ == "__main__":
     for file_name in os.listdir(folder_path):
         if file_name.endswith(".avi"):
             video_path = os.path.join(folder_path, file_name)
-            process_video(video_path, save_folder_path)
+            process_video(video_path, save_folder_path, file_name)
