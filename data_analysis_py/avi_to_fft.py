@@ -13,8 +13,6 @@ def process_video(video_path, save_path=None, file_name=None):
     show_plotted_frequencies = True
     # Adjust frequencies for IR and OR light and get information from file_name
     target_frequency_IR, target_frequency_OR = parse_filename(file_name)
-    target_frequency_IR = 6
-    print(target_frequency_IR, target_frequency_OR)
     # Get video input
     cap = cv2.VideoCapture(video_path)
     fps = int(cap.get(cv2.CAP_PROP_FPS))
@@ -165,10 +163,11 @@ def parse_filename(name):
 
 # Main Function that handles paths
 if __name__ == "__main__":
-    folder_path = "C:\\Users\\Tobias\\Videos\\"
+    source_folder_path = "C:\\Users\\Tobias\\Videos\\0_to_10_exhaustive"
     save_folder_path = "C:\\Users\\Tobias\\Videos\\plots\\" 
 
-    for file_name in os.listdir(folder_path):
+    for file_name in os.listdir(source_folder_path):
         if file_name.endswith(".avi"):
-            video_path = os.path.join(folder_path, file_name)
+            video_path = os.path.join(source_folder_path, file_name)
             process_video(video_path, save_folder_path, file_name)
+            print("File processed: ", video_path)
