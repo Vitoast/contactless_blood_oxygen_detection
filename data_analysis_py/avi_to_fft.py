@@ -5,14 +5,18 @@ from scipy.interpolate import interp1d
 import os
 import re
 
+# Enable the average FFT plot
+show_filtered_pictures = False
+# Enable the filtered picture output for IR and OR
+show_plotted_frequencies = False
+# Enable plot of signal quality
+show_signal_quality = True
+    
 # Function to analyse a video input
 def process_video(video_path, save_path=None, file_name=None):
-    # Enable the average FFT plot
-    show_filtered_pictures = True
-    # Enable the filtered picture output for IR and OR
-    show_plotted_frequencies = True
     # Adjust frequencies for IR and OR light and get information from file_name
     target_frequency_IR, target_frequency_OR = parse_filename(file_name)
+    value_frequency_IR, value_frequency_OR = 0,0
     # Get video input
     cap = cv2.VideoCapture(video_path)
     fps = int(cap.get(cv2.CAP_PROP_FPS))
@@ -47,7 +51,7 @@ def process_video(video_path, save_path=None, file_name=None):
     frame_depth = len(gray_frames[0][0])
 
     # This part calculates and plots the FFT of the average pixel value
-    if show_plotted_frequencies:
+    if show_plotted_frequencies | show_signal_quality:
         
         # if requested insert interpolated values
         if interpolate:
@@ -60,26 +64,36 @@ def process_video(video_path, save_path=None, file_name=None):
         fft_result = np.fft.fft(average_values, n=padding_factor * len(average_values))
         fft_result_magnitude = np.abs(fft_result)
 
+        if show_signal_quality:
+            return_index_IR = int(target_frequency_IR * len(fft_result_magnitude) / fps)
+            return_index_OR = int(target_frequency_OR * len(fft_result_magnitude) / fps)
+            value_frequency_IR = fft_result_magnitude[return_index_IR]
+            value_frequency_OR = fft_result_magnitude[return_index_OR]
+
         # Frequency Bins
         n = len(fft_result)
         freq = np.fft.fftfreq(n, 1 / (fps))
 
-        # Plotting
-        plt.clf()
-        plt.plot(freq[:n // 2], fft_result_magnitude[:n // 2])  # Adjust the range for frequencies
-        plt.title('Frequency Spectrum')
-        plt.xlabel('Frequency (Hz)')
-        plt.ylabel('Amplitude')
+        if show_plotted_frequencies:
+            # Plotting
+            plt.clf()
+            plt.plot(freq[:n // 2], fft_result_magnitude[:n // 2])  # Adjust the range for frequencies
+            plt.title('Frequency Spectrum')
+            plt.xlabel('Frequency (Hz)')
+            plt.ylabel('Amplitude')
+    
+            # Save plot if save_path is provided
+            if save_path:
+                file_name = os.path.splitext(os.path.basename(video_path))[0]
+                save_file_path = os.path.join(save_path, f'{file_name}_spectrum.png')
+                plt.savefig(save_file_path)
+            else:
+                plt.show()
 
-        # Save plot if save_path is provided
-        if save_path:
-            file_name = os.path.splitext(os.path.basename(video_path))[0]
-            save_file_path = os.path.join(save_path, f'{file_name}_spectrum.png')
-            plt.savefig(save_file_path)
-        else:
-            plt.show()
     
     # This part caclulates the FFT values for each pixel, filters the frequency and shows the resulting picture
+    target_index_IR = 0
+    target_index_OR = 0
     if show_filtered_pictures & (not undersampled): 
         
         fft_result = []
@@ -143,6 +157,11 @@ def process_video(video_path, save_path=None, file_name=None):
     # Free video input
     cap.release()
 
+    if show_signal_quality:
+        return target_frequency_IR, target_frequency_OR, value_frequency_IR, value_frequency_OR
+    else:
+        return 0,0,0,0
+
 # Use this to get information about used modulation frequencies from video file names
 def parse_filename(name):
     # Define the regular expression pattern
@@ -161,13 +180,49 @@ def parse_filename(name):
         print("Input file does not have correct naming.")
         return None, None
 
+# This function takes data points for two plots of either IR or OR signal levels and plots them in a topology
+def plot_signal_levels(x_coordinates,y_coordinates,data_IR,data_OR,save_path):
+    plt.clf()
+    plt.scatter(x_coordinates, y_coordinates, c=data_IR, cmap='viridis') 
+    plt.colorbar(label='Signal Quality Based On FFT Values') 
+    plt.title('Quality Of Infrared Signals')
+    plt.xlabel('Modulation Frequency Infrared')
+    plt.ylabel('Modulation Frequency Orange')
+    plt.grid(True, which='both')
+    # Save plot if save_path is provided
+    if save_path:
+        save_file_path = os.path.join(save_path, 'signal_level_IR.png')
+        plt.savefig(save_file_path)
+    else:
+        plt.show()
+
+    plt.clf()
+    plt.scatter(x_coordinates, y_coordinates, c=data_OR, cmap='viridis') 
+    plt.colorbar(label='Signal Quality Based On FFT Values') 
+    plt.title('Quality Of Orange Signals')
+    plt.xlabel('Modulation Frequency Infrared')
+    plt.ylabel('Modulation Frequency Orange')
+    plt.grid(True, which='both')
+    # Save plot if save_path is provided
+    if save_path:
+        save_file_path = os.path.join(save_path, 'signal_level_OR.png')
+        plt.savefig(save_file_path)
+    else:
+        plt.show()
+
 # Main Function that handles paths
 if __name__ == "__main__":
     source_folder_path = "C:\\Users\\Tobias\\Videos\\0_to_10_exhaustive"
     save_folder_path = "C:\\Users\\Tobias\\Videos\\plots\\" 
 
+    x_coordinates, y_coordinates, filtered_signal_IR, filtered_signal_OR = [],[],[],[]
     for file_name in os.listdir(source_folder_path):
         if file_name.endswith(".avi"):
             video_path = os.path.join(source_folder_path, file_name)
-            process_video(video_path, save_folder_path, file_name)
+            x,y,d_IR,d_OR = process_video(video_path, save_folder_path, file_name)
+            x_coordinates.append(x)
+            y_coordinates.append(y)
+            filtered_signal_IR.append(d_IR)
+            filtered_signal_OR.append(d_OR)
             print("File processed: ", video_path)
+    plot_signal_levels(x_coordinates,y_coordinates,filtered_signal_IR,filtered_signal_OR,save_folder_path)
